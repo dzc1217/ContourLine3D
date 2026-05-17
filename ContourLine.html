@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>等高线3D教学智能体 · 交互式学习</title>
+    <style>
+        /* ========== 原有样式 ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root { --primary: #2563eb; --accent: #dc2626; --bg: #f8fafc; --text: #1e293b; --text-muted: #64748b; --border: #e2e8f0; }
+        html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; background: var(--bg); color: var(--text); }
+        #app { display: flex; flex-direction: column; height: 100vh; }
+        .header { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 0.5rem 1rem; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 1rem; font-weight: 700; }
+        .header p { font-size: 0.65rem; opacity: 0.9; }
+        .header-tip { font-size: 0.6rem; background: rgba(255,255,255,0.2); padding: 0.3rem 0.5rem; border-radius: 4px; }
+        .header-right { display: flex; align-items: center; gap: 1rem; }
+        .image-switcher { display: flex; align-items: center; gap: 0.3rem; background: rgba(255,255,255,0.15); border-radius: 8px; padding: 0.3rem 0.6rem; }
+        .image-switcher label { font-size: 0.7rem; font-weight: 600; display: flex; align-items: center; gap: 0.2rem; }
+        .image-switcher select { padding: 0.25rem 0.5rem; border-radius: 6px; border: none; font-size: 0.7rem; background: white; color: #1e293b; cursor: pointer; }
+        .main { flex: 1; display: flex; overflow: hidden; }
+        .view-area { flex: 1; position: relative; background: #ffffff; }
+        .view-area canvas { display: block; }
+        .view-area.mode-2d canvas { display: none; }
+        .contour-image { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 95%; max-height: 95%; }
+        .view-area.mode-2d .contour-image { display: block; }
+        .mode-label { position: absolute; top: 0.5rem; left: 0.5rem; background: var(--primary); color: white; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; z-index: 10; }
+        .legend { position: absolute; bottom: 0.5rem; right: 0.5rem; background: white; padding: 0.5rem; border-radius: 6px; font-size: 0.55rem; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .legend-title { font-weight: 700; margin-bottom: 0.3rem; }
+        .legend-item { display: flex; align-items: center; gap: 0.3rem; margin: 0.15rem 0; }
+        .legend-color { width: 14px; height: 3px; border-radius: 1px; }
+        .sidebar { width: 240px; background: white; border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+        .panel-title { font-size: 0.75rem; font-weight: 700; padding: 0.6rem; background: #f1f5f9; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.4rem; }
+        .panel-title::before { content: ''; width: 3px; height: 12px; background: var(--primary); border-radius: 2px; }
+        .terrain-cards { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; }
+        .terrain-card { background: #f8fafc; border: 2px solid transparent; border-radius: 8px; padding: 0.5rem; cursor: pointer; transition: all 0.2s; }
+        .terrain-card:hover { background: #f1f5f9; }
+        .terrain-card.active { border-color: var(--accent); background: #fef2f2; }
+        .card-top { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
+        .card-icon { font-size: 1rem; }
+        .card-name { font-size: 0.75rem; font-weight: 600; }
+        .card-desc { font-size: 0.6rem; color: var(--text-muted); line-height: 1.4; }
+        .card-contour { margin-top: 0.3rem; padding-top: 0.3rem; border-top: 1px solid var(--border); font-size: 0.55rem; color: var(--accent); font-weight: 500; }
+        .settings { padding: 0.5rem; border-top: 1px solid var(--border); margin-top: auto; }
+        .setting-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
+        .setting-label { font-size: 0.6rem; color: var(--text-muted); }
+        .setting-value { font-size: 0.6rem; font-weight: 600; min-width: 35px; text-align: right; }
+        input[type="range"] { width: 60px; height: 4px; -webkit-appearance: none; background: #e2e8f0; border-radius: 2px; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; background: var(--primary); border-radius: 50%; cursor: pointer; }
+        .footer { display: flex; justify-content: center; align-items: center; gap: 0.8rem; padding: 0.5rem; background: white; border-top: 1px solid var(--border); flex-wrap: wrap; }
+        .btn { display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.2rem; border: 2px solid var(--border); border-radius: 6px; background: white; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn:hover { border-color: var(--primary); }
+        .btn.active { background: var(--primary); border-color: var(--primary); color: white; }
+        .popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 10px; padding: 1rem; max-width: 280px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 100; display: none; }
+        .popup.show { display: block; animation: popIn 0.3s ease; }
+        @keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        .popup-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+        .popup-title { font-size: 0.9rem; font-weight: 700; color: var(--accent); }
+        .popup-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); }
+        .popup-content { font-size: 0.7rem; line-height: 1.6; color: var(--text); }
+        .popup-tip { margin-top: 0.5rem; padding: 0.4rem; background: #fef3c7; border-radius: 4px; font-size: 0.65rem; color: #92400e; }
+
+        /* ========== AI助教聊天窗口样式 ========== */
+        #ai-chat-toggle {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 200;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: none;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        #ai-chat-toggle:hover { transform: scale(1.1); }
+        #ai-chat-window {
+            position: absolute;
+            bottom: 90px;
+            left: 20px;
+            width: 320px;
+            max-height: 450px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            display: none;
+            flex-direction: column;
+            z-index: 200;
+            overflow: hidden;
+        }
+        #ai-chat-window.open { display: flex; }
+        .chat-header {
+            background: var(--primary);
+            color: white;
+            padding: 0.6rem 1rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-header button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.8rem;
+            min-height: 200px;
+            max-height: 300px;
+        }
+        .message {
+            margin-bottom: 0.8rem;
+            font-size: 0.7rem;
+            line-height: 1.5;
+            animation: fadeIn 0.3s;
+        }
+        .message.user { text-align: right; color: var(--text); }
+        .message.user span {
+            background: #e8f0fe;
+            padding: 0.4rem 0.8rem;
+            border-radius: 12px;
+            display: inline-block;
+            max-width: 85%;
+        }
+        .message.assistant { text-align: left; color: var(--text); }
+        .message.assistant span {
+            background: #f1f5f9;
+            padding: 0.4rem 0.8rem;
+            border-radius: 12px;
+            display: inline-block;
+            max-width: 85%;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .chat-input-area {
+            display: flex;
+            padding: 0.5rem;
+            border-top: 1px solid var(--border);
+            gap: 0.3rem;
+        }
+        .chat-input-area input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.7rem;
+            outline: none;
+        }
+        .chat-input-area button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.5rem 0.8rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .chat-input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header class="header">
+            <div>
+                <h1>🏔️ 等高线3D教学智能体</h1>
+                <p>AI助教 · 交互式学习</p>
+            </div>
+            <div class="header-right">
+                <div class="header-tip">🖱️ 拖拽旋转 · 滚轮缩放 · 点击AI按钮提问</div>
+                <div class="image-switcher">
+                    <label for="image-select">🖼️ 对比图片</label>
+                    <select id="image-select">
+                        <option value="0">教学示范图</option>
+                        <option value="1">抱犊寨卫星图1</option>
+                        <option value="2">抱犊寨卫星图2</option>
+                        <option value="3">抱犊寨地形图3</option>
+                        <option value="4">抱犊寨地形图4</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+        <main class="main">
+            <div id="view" class="view-area">
+                <div class="mode-label" id="mode-label">立体地形视图</div>
+                <img id="contour-img" class="contour-image" src="" alt="等高线地形图">
+
+                <!-- AI助教按钮和窗口 -->
+                <button id="ai-chat-toggle" title="AI助教">💬</button>
+                <div id="ai-chat-window">
+                    <div class="chat-header">
+                        <span>🤖 AI地理助教</span>
+                        <button id="chat-close">×</button>
+                    </div>
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="message assistant"><span>你好！我是等高线学习助手。你可以问我关于山峰、山谷、山脊、鞍部、陡崖等问题，也可以指着模型上的位置问我～</span></div>
+                    </div>
+                    <div class="chat-input-area">
+    					<input type="text" id="chat-input" placeholder="输入问题或点麦克风说话..." />
+    					<button id="chat-send">发送</button>
+    					<button id="chat-voice" title="语音输入">🎤</button>
+					</div>
+                </div>
+            </div>
+            <aside class="sidebar">
+                <div class="panel-title">地形特征识别</div>
+                <div class="terrain-cards">
+                    <div class="terrain-card" data-feature="peak"><div class="card-top"><span class="card-icon">▲</span><span class="card-name">山峰</span></div><div class="card-desc">地势最高的部分，周围低中间高</div><div class="card-contour">等高线：闭合曲线，内高外低</div></div>
+                    <div class="terrain-card" data-feature="valley"><div class="card-top"><span class="card-icon">∨</span><span class="card-name">山谷</span></div><div class="card-desc">两山之间低洼的部分</div><div class="card-contour">等高线：凸向高处（凸高为谷）</div></div>
+                    <div class="terrain-card" data-feature="ridge"><div class="card-top"><span class="card-icon">∧</span><span class="card-name">山脊</span></div><div class="card-desc">山体延伸的凸起部分</div><div class="card-contour">等高线：凸向低处（凸低为脊）</div></div>
+                    <div class="terrain-card" data-feature="saddle"><div class="card-top"><span class="card-icon">🐎</span><span class="card-name">鞍部</span></div><div class="card-desc">两山顶之间相对低洼的部位</div><div class="card-contour">等高线：呈对称的双曲线形</div></div>
+                    <div class="terrain-card" data-feature="cliff"><div class="card-top"><span class="card-icon">║</span><span class="card-name">陡崖</span></div><div class="card-desc">近于垂直的山坡</div><div class="card-contour">等高线：密集重叠或重合</div></div>
+                    <div class="terrain-card" data-feature="gentle"><div class="card-top"><span class="card-icon">—</span><span class="card-name">缓坡</span></div><div class="card-desc">坡度平缓的地形区域</div><div class="card-contour">等高线：稀疏且间距大</div></div>
+                </div>
+                <div class="settings">
+                    <div class="panel-title">参数设置</div>
+                    <div class="setting-row"><span class="setting-label">垂直比例</span><input type="range" id="vscale" min="0.8" max="2" value="1.5" step="0.1"><span class="setting-value" id="vscale-val">1.5x</span></div>
+                    <div class="setting-row"><span class="setting-label">等高线数量</span><input type="range" id="ccount" min="12" max="28" value="20"><span class="setting-value" id="ccount-val">20条</span></div>
+                </div>
+            </aside>
+            <div class="popup" id="popup">
+                <div class="popup-header"><span class="popup-title" id="popup-title"></span><button class="popup-close" id="popup-close">×</button></div>
+                <div class="popup-content" id="popup-content"></div>
+                <div class="popup-tip" id="popup-tip"></div>
+            </div>
+        </main>
+        <footer class="footer">
+            <button class="btn active" id="btn-3d">🎮 立体模式</button>
+            <button class="btn" id="btn-2d">🗺️ 平面模式</button>
+            <button class="btn" id="btn-reset">🔄 重置视角</button>
+            <div class="image-switcher" style="background:#f1f5f9;">
+                <label for="image-select-bottom" style="color:var(--text);">🖼️ 对比图片</label>
+                <select id="image-select-bottom">
+                    <option value="0">教学示范图</option>
+                    <option value="1">抱犊寨卫星图1</option>
+                    <option value="2">抱犊寨卫星图2</option>
+                    <option value="3">抱犊寨地形图3</option>
+                    <option value="4">抱犊寨地形图4</option>
+                </select>
+            </div>
+        </footer>
+    </div>
+    <!-- 本地版js网址 -->
+   
+    <script type="importmap">
+        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+    </script>
+     <!-- 线上版js网址 
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./js/three.module.js",
+                "three/addons/": "./js/"
+            }
+        }
+    </script>-->
+    <script type="module">
+        import * as THREE from 'three';
+        //import { OrbitControls } from 'three/addons/OrbitControls.js';
+       // import { GLTFLoader } from 'three/addons/GLTFLoader.js';
+        //import { DRACOLoader } from 'three/addons/DRACOLoader.js';
+        //本地版地址
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+        // =================================================
+
+        // 系统提示词（定义AI助教的角色和行为）
+        const SYSTEM_PROMPT = `你是一名专业的高中地理等高线教学助手，名字叫“小峰老师”。你的任务是：
+1. 用通俗易懂的语言帮助学生理解等高线地形图的各种概念（山峰、山谷、山脊、鞍部、陡崖、缓坡等）。
+2. 结合学生看到的三维地形模型进行解释，例如等高线密集表示陡坡，稀疏表示缓坡。
+3. 回答要简洁明了，每次回答控制在200字以内，适合中学生理解。
+4. 鼓励学生多观察模型，引导他们发现地形的规律。
+5. 当学生指出模型上的某个位置时，你可以根据位置特征给出具体的解释。
+请始终以热情、耐心的语气回答。`;
+
+        // 图片列表
+        const imageList = [
+            { name: '教学示范图', src: '0.jpg' },
+            { name: '抱犊寨卫星图1', src: '1.jpg' },
+            { name: '抱犊寨卫星图2', src: '2.jpg' },
+            { name: '抱犊寨地形图3', src: '3.jpg' },
+            { name: '抱犊寨地形图4', src: '4.jpg' }
+        ];
+        let currentImageIndex = 0;
+
+        let scene, camera, renderer, controls;
+        let modelGroup, labelGroup;
+        let mode = '3d';
+        let activeFeature = null;
+        let verticalScale = 1.5;
+        let contourCount = 20;
+        let sunLight, fillLight;
+        let modelHeightMin = 0, modelHeightMax = 1;
+
+        const dracoLoader = new DRACOLoader();
+       //dracoLoader.setDecoderPath('./js/');   //上线版代码
+       dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
+
+        const gltfLoader = new GLTFLoader();
+        gltfLoader.setDRACOLoader(dracoLoader);
+
+        function init() {
+            const container = document.getElementById('view');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb);
+            camera = new THREE.PerspectiveCamera(48, container.clientWidth/container.clientHeight, 0.1, 500);
+            camera.position.set(10, 10, 10);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.maxPolarAngle = Math.PI/2.1;
+            controls.minDistance = 0.1;
+            controls.maxDistance = 500;
+            controls.target.set(0, 0, 0);
+            controls.update();
+
+            scene.add(new THREE.AmbientLight(0x8899bb, 1.8));
+            scene.add(new THREE.HemisphereLight(0xffeedd, 0x445566, 1.2));
+            sunLight = new THREE.DirectionalLight(0xfff8ee, 4.5);
+            sunLight.position.set(8, 10, 3);
+            scene.add(sunLight);
+            fillLight = new THREE.DirectionalLight(0xaaccff, 1.5);
+            fillLight.position.set(-3, 1, -3);
+            scene.add(fillLight);
+
+            updatePlaneImage();
+            loadModelAndSetup();
+            addLegend(container);
+            initAIChat();
+        }
+
+        // ==================== AI对话逻辑 ====================
+        function initAIChat() {
+            const toggleBtn = document.getElementById('ai-chat-toggle');
+            const chatWindow = document.getElementById('ai-chat-window');
+            const closeBtn = document.getElementById('chat-close');
+            const sendBtn = document.getElementById('chat-send');
+            const input = document.getElementById('chat-input');
+            const messages = document.getElementById('chat-messages');
+
+            toggleBtn.addEventListener('click', () => {
+                chatWindow.classList.toggle('open');
+            });
+
+            closeBtn.addEventListener('click', () => {
+                chatWindow.classList.remove('open');
+            });
+
+            async function sendMessage() {
+                const userMessage = input.value.trim();
+                if (!userMessage) return;
+
+                // 显示用户消息
+                addMessage('user', userMessage);
+                input.value = '';
+                sendBtn.disabled = true;
+
+                // 显示加载提示
+                const loadingId = addMessage('assistant', '思考中...');
+
+                try {
+                    const response = await fetch('/api/chat', {
+    					method: 'POST',
+    					headers: { 'Content-Type': 'application/json' },
+    					body: JSON.stringify({ message: userMessage })
+					});
+
+                    const data = await response.json();
+                    // 移除加载提示
+                    removeMessage(loadingId);
+
+                    if (data.choices && data.choices.length > 0) {
+                        const reply = data.choices[0].message.content;
+                        addMessage('assistant', reply);
+                    } else {
+                        addMessage('assistant', '抱歉，我暂时无法回答这个问题，请稍后再试。');
+                    }
+                } catch (error) {
+                    removeMessage(loadingId);
+                    addMessage('assistant', '网络请求失败，请检查API Key和网络连接。');
+                } finally {
+                    sendBtn.disabled = false;
+                }
+            }
+
+            sendBtn.addEventListener('click', sendMessage);
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+
+            function addMessage(role, content) {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${role}`;
+                msgDiv.innerHTML = `<span>${content}</span>`;
+                messages.appendChild(msgDiv);
+                messages.scrollTop = messages.scrollHeight;
+                return msgDiv;
+            }
+
+            function removeMessage(element) {
+                element.remove();
+            }
+
+            // 初始化语音识别
+const voiceBtn = document.getElementById('chat-voice');
+const inputField = document.getElementById('chat-input');
+
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'zh-CN';       // 中文识别
+    recognition.interimResults = false; // 只取最终结果
+    recognition.continuous = false;    // 说完一句就停止
+
+    voiceBtn.addEventListener('click', () => {
+        voiceBtn.textContent = '🔴'; // 正在录音
+        recognition.start();
+    });
+
+    recognition.addEventListener('result', (event) => {
+        const transcript = event.results[0][0].transcript;
+        inputField.value = transcript;
+        voiceBtn.textContent = '🎤'; // 恢复麦克风图标
+        // 自动发送（可选）
+        // document.getElementById('chat-send').click();
+    });
+
+    recognition.addEventListener('error', (event) => {
+        voiceBtn.textContent = '🎤';
+        alert('语音识别失败：' + event.error);
+    });
+
+    recognition.addEventListener('end', () => {
+        voiceBtn.textContent = '🎤';
+    });
+} else {
+    voiceBtn.style.display = 'none'; // 浏览器不支持，隐藏按钮
+}
+
+
+
+
+
+        }
+
+        function updatePlaneImage() {
+            const img = document.getElementById('contour-img');
+            if (img) {
+                img.src = imageList[currentImageIndex].src;
+                img.alt = imageList[currentImageIndex].name;
+            }
+        }
+
+        function loadModelAndSetup() {
+        	//线上版本const modelUrl = './ContourLine.glb';
+            const modelUrl = 'https://zzqrzm.top/ContourLine/ContourLine.glb';//本地版本
+            console.log('开始加载模型:', modelUrl);
+            document.getElementById('mode-label').textContent = '加载模型中... 0%';
+
+            gltfLoader.load(
+                modelUrl,
+                (gltf) => {
+                    console.log('模型加载成功');
+                    const model = gltf.scene;
+                    const box = new THREE.Box3().setFromObject(model);
+                    modelHeightMin = box.min.y;
+                    modelHeightMax = box.max.y;
+                    window.modelHeightMin = modelHeightMin;
+                    window.modelHeightMax = modelHeightMax;
+
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    console.log('模型高度范围:', modelHeightMin, '~', modelHeightMax, '尺寸:', maxDim);
+
+                    const center = box.getCenter(new THREE.Vector3());
+                    model.position.set(-center.x, -center.y, -center.z);
+                    model.scale.y = verticalScale;
+
+                    model.traverse((child) => {
+                        if (child.isMesh) {
+                            const contourSpacing = (modelHeightMax - modelHeightMin) / contourCount;
+                            child.material = new THREE.ShaderMaterial({
+                                uniforms: {
+                                    uContourSpacing: { value: contourSpacing },
+                                    uMinHeight: { value: modelHeightMin },
+                                    uMaxHeight: { value: modelHeightMax },
+                                    uVerticalScale: { value: verticalScale },
+                                    uSunDirection: { value: sunLight.position.clone().normalize() },
+                                    uFillDir: { value: fillLight.position.clone().normalize() }
+                                },
+                                vertexShader: `
+                                    varying vec3 vWorldPos;
+                                    varying vec3 vNormal;
+                                    varying vec3 vViewPos;
+                                    varying float vHeight;
+                                    void main() {
+                                        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                                        vWorldPos = worldPos.xyz;
+                                        vHeight = worldPos.y;
+                                        vNormal = normalize(mat3(modelMatrix) * normal);
+                                        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                                        vViewPos = -mv.xyz;
+                                        gl_Position = projectionMatrix * mv;
+                                    }
+                                `,
+                                fragmentShader: `
+                                    varying vec3 vWorldPos;
+                                    varying vec3 vNormal;
+                                    varying vec3 vViewPos;
+                                    varying float vHeight;
+                                    uniform float uContourSpacing;
+                                    uniform float uMinHeight;
+                                    uniform float uMaxHeight;
+                                    uniform vec3 uSunDirection;
+                                    uniform vec3 uFillDir;
+                                    
+                                    vec3 getColor(float h) {
+                                        h = clamp(h, 0.0, 1.0);
+                                        vec3 N = normalize(vNormal);
+                                        float elevation = vHeight - uMinHeight;
+
+                                        if (vWorldPos.x < 0.0 && elevation > 0.05 && elevation < 0.065) {
+                                            return vec3(0.2, 0.5, 0.8);
+                                        }
+
+                                        if (h < 0.18) return mix(vec3(0.22,0.52,0.18), vec3(0.35,0.62,0.22), h/0.18);
+                                        else if (h < 0.35) return mix(vec3(0.35,0.62,0.22), vec3(0.55,0.68,0.25), (h-0.18)/0.17);
+                                        else if (h < 0.5) return mix(vec3(0.55,0.68,0.25), vec3(0.72,0.65,0.28), (h-0.35)/0.15);
+                                        else if (h < 0.62) return mix(vec3(0.72,0.65,0.28), vec3(0.78,0.55,0.22), (h-0.5)/0.12);
+                                        else if (h < 0.74) return mix(vec3(0.78,0.55,0.22), vec3(0.68,0.4,0.18), (h-0.62)/0.12);
+                                        else if (h < 0.85) return mix(vec3(0.68,0.4,0.18), vec3(0.55,0.3,0.15), (h-0.74)/0.11);
+                                        else if (h < 0.94) return mix(vec3(0.55,0.3,0.15), vec3(0.72,0.65,0.55), (h-0.85)/0.09);
+                                        else return mix(vec3(0.72,0.65,0.55), vec3(0.9,0.88,0.84), (h-0.94)/0.06);
+                                    }
+                                    
+                                    void main() {
+                                        float hNorm = (vHeight - uMinHeight) / (uMaxHeight - uMinHeight);
+                                        vec3 base = getColor(hNorm);
+                                        float line = 0.0;
+                                        float phase = mod(vHeight - uMinHeight + uContourSpacing*0.5, uContourSpacing);
+                                        float halfW = uContourSpacing * 0.06;
+                                        if (phase < halfW*2.0) line = 1.0 - smoothstep(0.0, halfW, abs(phase-halfW));
+                                        vec3 N = normalize(vNormal);
+                                        float diff = max(dot(N, uSunDirection), 0.0)*0.55 + max(dot(N, uFillDir), 0.0)*0.18;
+                                        float light = 0.55 + diff;
+                                        vec3 color = base * light * 1.05;
+                                        color = mix(color, vec3(0.1, 0.05, 0.05), line*0.8);
+                                        float fresnel = pow(1.0 - abs(dot(N, normalize(vViewPos))), 3.5);
+                                        color += fresnel * 0.06;
+                                        gl_FragColor = vec4(color, 1.0);
+                                    }
+                                `,
+                                side: THREE.DoubleSide
+                            });
+                        }
+                    });
+
+                    scene.add(model);
+                    modelGroup = model;
+
+                    const newTarget = new THREE.Vector3(0, size.y/2, 0);
+                    const newPos = new THREE.Vector3(maxDim * 1.5, maxDim * 0.8, maxDim * 1.5);
+                    camera.position.copy(newPos);
+                    controls.target.copy(newTarget);
+                    controls.minDistance = maxDim * 0.1;
+                    controls.maxDistance = maxDim * 5;
+                    controls.update();
+
+                    createContourLabelsFromModel();
+                    document.getElementById('mode-label').textContent = '立体地形视图';
+                },
+                (progress) => {
+                    if (progress.total > 0) {
+                        const percent = Math.round(progress.loaded / progress.total * 100);
+                        document.getElementById('mode-label').textContent = `加载模型中... ${percent}%`;
+                    }
+                },
+                (error) => {
+                    console.error('模型加载失败:', error);
+                    document.getElementById('mode-label').textContent = '❌ 模型加载失败';
+                }
+            );
+        }
+
+        function createContourLabelsFromModel() {
+            if (labelGroup) scene.remove(labelGroup);
+            labelGroup = new THREE.Group();
+            if (!modelGroup) return;
+
+            const spacing = (modelHeightMax - modelHeightMin) / contourCount;
+            const positions = [];
+            modelGroup.traverse((child) => {
+                if (child.isMesh && child.geometry) {
+                    const pos = child.geometry.attributes.position;
+                    if (!pos) return;
+                    const worldMatrix = child.matrixWorld;
+                    const step = Math.max(1, Math.floor(pos.count / 4000));
+                    for (let i = 0; i < pos.count; i += step) {
+                        const worldPos = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)).applyMatrix4(worldMatrix);
+                        positions.push(worldPos);
+                    }
+                }
+            });
+            if (positions.length === 0) return;
+
+            const usedPositions = [];
+
+            for (let level = spacing; level <= modelHeightMax - modelHeightMin; level += spacing) {
+                const layerPoints = positions.filter(p => {
+                    const rel = p.y - modelHeightMin;
+                    return Math.abs(rel - level) < spacing * 0.2;
+                });
+                if (layerPoints.length === 0) continue;
+
+                const targetCount = Math.min(3, layerPoints.length);
+                const selected = [];
+                const stepIdx = Math.max(1, Math.floor(layerPoints.length / targetCount));
+                for (let i = 0; i < layerPoints.length; i += stepIdx) {
+                    const pt = layerPoints[i];
+                    let tooClose = false;
+                    for (const used of usedPositions) {
+                        if (pt.distanceTo(used) < 0.1) {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+                    if (!tooClose) {
+                        selected.push(pt);
+                        usedPositions.push(pt);
+                    }
+                    if (selected.length >= targetCount) break;
+                }
+
+                selected.forEach(pos => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 128;
+                    canvas.height = 64;
+                    const ctx = canvas.getContext('2d');
+
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                    ctx.beginPath();
+                    ctx.roundRect(4, 4, 80, 35, 8);
+                    ctx.fill();
+
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 24px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(Math.round(level * 1000) + 'm', 44, 21.5);
+
+                    const texture = new THREE.CanvasTexture(canvas);
+                    const spriteMat = new THREE.SpriteMaterial({
+                        map: texture,
+                        transparent: true,
+                        depthTest: true,
+                        depthWrite: false
+                    });
+                    const sprite = new THREE.Sprite(spriteMat);
+                    sprite.position.copy(pos);
+                    sprite.position.y += 0.05;
+                    sprite.scale.set(0.15, 0.075, 1);
+                    labelGroup.add(sprite);
+                });
+            }
+            scene.add(labelGroup);
+        }
+
+        function addLegend(container) {
+            const legend = document.createElement('div');
+            legend.className = 'legend';
+            legend.innerHTML = `<div class="legend-title">📊 高度图例</div>
+                <div class="legend-item"><div class="legend-color" style="background:#4ade80"></div><span>低地</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#22c55e"></div><span>山脚</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#84cc16"></div><span>山腰</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#eab308"></div><span>山腰</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#f97316"></div><span>山顶</span></div>
+                <div class="legend-item"><div class="legend-color" style="background:#ef4444"></div><span>峰顶</span></div>`;
+            container.appendChild(legend);
+        }
+
+        function doSwitchMode(m) {
+            mode = m;
+            document.getElementById('btn-3d').classList.toggle('active', m === '3d');
+            document.getElementById('btn-2d').classList.toggle('active', m === '2d');
+            document.getElementById('mode-label').textContent = m === '3d' ? '立体地形视图' : '平面等高线图';
+            const viewArea = document.getElementById('view');
+            if (m === '2d') viewArea.classList.add('mode-2d');
+            else viewArea.classList.remove('mode-2d');
+            updatePlaneImage();
+        }
+
+        function highlightFeature(f) {
+            document.querySelectorAll('.terrain-card').forEach(c => c.classList.remove('active'));
+            if (!f) return;
+            document.querySelector(`.terrain-card[data-feature="${f}"]`)?.classList.add('active');
+            showPopup(f);
+        }
+
+        function showPopup(f) {
+            const info = {
+                peak: { title: '⛰️ 山峰', content: '地势最高的部分，周围低中间高。等高线呈闭合曲线，数值从外向内递增。', tip: '等高线闭合，中心最高' },
+                valley: { title: '🏞️ 山谷', content: '两山之间低洼的部分，常有溪流。等高线向高处凸出。', tip: '口诀：凸高为谷' },
+                ridge: { title: '🏔️ 山脊', content: '山体延伸的凸起部分。等高线向低处凸出。', tip: '口诀：凸低为脊' },
+                saddle: { title: '🐎 鞍部', content: '两座山峰之间相对低洼的部位。', tip: '两峰之间最低处' },
+                cliff: { title: '🧗 陡崖', content: '近于垂直的山坡。等高线密集重叠。', tip: '等高线重合处' }
+            };
+            const pop = document.getElementById('popup');
+            document.getElementById('popup-title').textContent = info[f]?.title || '';
+            document.getElementById('popup-content').textContent = info[f]?.content || '';
+            document.getElementById('popup-tip').textContent = info[f]?.tip || '';
+            pop.classList.add('show');
+        }
+
+        function bindEvents() {
+            document.getElementById('btn-3d').onclick = () => doSwitchMode('3d');
+            document.getElementById('btn-2d').onclick = () => doSwitchMode('2d');
+            document.getElementById('btn-reset').onclick = () => {
+                if (modelGroup) {
+                    const box = new THREE.Box3().setFromObject(modelGroup);
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    camera.position.set(maxDim * 1.5, maxDim * 0.8, maxDim * 1.5);
+                    controls.target.set(0, size.y/2, 0);
+                    controls.update();
+                }
+            };
+            document.querySelectorAll('.terrain-card').forEach(c => {
+                c.onclick = () => {
+                    const f = c.dataset.feature;
+                    activeFeature = activeFeature === f ? null : f;
+                    highlightFeature(activeFeature);
+                };
+            });
+            document.getElementById('popup-close').onclick = () => document.getElementById('popup').classList.remove('show');
+
+            document.getElementById('vscale').oninput = e => {
+                verticalScale = +e.target.value;
+                document.getElementById('vscale-val').textContent = verticalScale.toFixed(1) + 'x';
+                if (modelGroup) {
+                    modelGroup.scale.y = verticalScale;
+                    modelGroup.traverse((child) => {
+                        if (child.isMesh && child.material.uniforms) {
+                            child.material.uniforms.uVerticalScale.value = verticalScale;
+                        }
+                    });
+                    createContourLabelsFromModel();
+                }
+            };
+
+            document.getElementById('ccount').oninput = e => {
+                contourCount = +e.target.value;
+                document.getElementById('ccount-val').textContent = contourCount + '条';
+                if (modelGroup) {
+                    const spacing = (modelHeightMax - modelHeightMin) / contourCount;
+                    modelGroup.traverse((child) => {
+                        if (child.isMesh && child.material.uniforms) {
+                            child.material.uniforms.uContourSpacing.value = spacing;
+                        }
+                    });
+                    createContourLabelsFromModel();
+                }
+            };
+
+            document.getElementById('image-select').onchange = e => {
+                currentImageIndex = parseInt(e.target.value);
+                updatePlaneImage();
+            };
+            document.getElementById('image-select-bottom').onchange = e => {
+                currentImageIndex = parseInt(e.target.value);
+                updatePlaneImage();
+                document.getElementById('image-select').value = e.target.value;
+            };
+            window.addEventListener('resize', () => {
+                const c = document.getElementById('view');
+                const r = c.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0) {
+                    camera.aspect = r.width / r.height;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(r.width, r.height);
+                }
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (mode === '2d') return;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            bindEvents();
+            init();
+            animate();
+        });
+    </script>
+</body>
+</html>
